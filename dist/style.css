@@ -31,6 +31,7 @@ h2 { font-size: 21px; }
 .filters, #stats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .filters > * { font-size: 14px; }
 .filters input { width: 175px; }
+#tag-filter { max-width: min(220px, 100%); }
 .summary { border-radius: 30px; font-size: 13px; padding: 5px 10px; color: var(--muted); background: #f7eefb; }
 .summary.late { color: #9d2348; }
 .summary.soon { color: #754906; }

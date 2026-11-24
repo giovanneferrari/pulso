@@ -86,11 +86,17 @@ const dateLabel = card => {
 };
 function render(){
   byId('board-title').textContent = boardName;
-  const active = cards.filter(card=>!card.archived);
+  const tagFilter = byId('tag-filter');
+  const selectedTag = tagFilter.value;
+  const sortedLabels = [...labelCatalog].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+  tagFilter.replaceChildren(new Option('Todas as etiquetas',''),...sortedLabels.map(label=>new Option(label.name,label.id)));
+  tagFilter.value = labelCatalog.some(label=>label.id===selectedTag) ? selectedTag : '';
+  const tag = tagFilter.value;
+  const viewCards = cards.filter(card=>Boolean(card.archived)===archivedView && (!tag || card.labelIds.includes(tag)));
   const summary = [
-    ['',active.length+' cartões'],
-    ['late',active.filter(card=>deadline(card)==='late').length+' em atraso'],
-    ['soon',active.filter(card=>deadline(card)==='soon').length+' vencem em breve']
+    ['',viewCards.length+' cartões'],
+    ['late',viewCards.filter(card=>deadline(card)==='late').length+' em atraso'],
+    ['soon',viewCards.filter(card=>deadline(card)==='soon').length+' vencem em breve']
   ];
   byId('stats').replaceChildren(...summary.map(([key,label])=>{
     const button = make('button','summary '+key,label);
@@ -112,7 +118,11 @@ function render(){
     const head = make('div','lane-head');
     const dot = make('span','dot');
     dot.style.setProperty('--dot',color);
-    const visible = cards.filter(c=>Boolean(c.archived)===archivedView && c.column===column && (!filter || deadline(c)===filter) && [c.title,c.description,c.assignee ?? '',...labelsFor(c).map(label=>label.name)].some(value=>value.toLocaleLowerCase('pt-BR').includes(query)));
+    const visible = viewCards.filter(card=>{
+      if(card.column!==column || (filter && deadline(card)!==filter)) return false;
+      const fields = [card.title,card.description,card.assignee ?? '',...labelsFor(card).map(label=>label.name)];
+      return fields.some(value=>value.toLocaleLowerCase('pt-BR').includes(query));
+    });
     head.append(dot,make('h3','',name),make('span','count',visible.length));
     const menu = make('button','lane-menu','⋯');
     menu.setAttribute('aria-label','Configurar lista '+name);
@@ -120,7 +130,7 @@ function render(){
     head.append(menu);
     const stack = make('div','cards');
     stack.append(...visible.map(cardElement));
-    if(!visible.length) stack.append(make('p','empty',filter || query ? 'Nenhum resultado nesta coluna.' : 'Nenhum cartão.'));
+    if(!visible.length) stack.append(make('p','empty',filter || query || tag ? 'Nenhum resultado nesta coluna.' : 'Nenhum cartão.'));
     const add = make('button','add','＋ Adicionar cartão');
     add.setAttribute('aria-label','Adicionar cartão em '+name);
     add.onclick = ()=>openEditor(null,column);
@@ -519,6 +529,7 @@ byId('archive-view').onclick = ()=>{
 byId('new').onclick = ()=>openEditor(null,columns[0].id);
 byId('search').oninput = render;
 byId('filter').onchange = render;
+byId('tag-filter').onchange = render;
 byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);
