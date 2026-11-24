@@ -183,3 +183,7 @@ legend { font-weight: 700; }
 .card-header { background: #f7effa; }
 .diary-avatar { background: #efe0f7; color: #660099; }
 .comment-entry p { background: #f6eef9; }
+
+.login-panel { width: min(420px, calc(100% - 32px)); margin: 12vh auto 0; padding: 24px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+#login-status { color: var(--muted); margin-top: 10px; min-height: 20px; }
+.account-actions { display: flex; align-items: center; gap: 6px; }

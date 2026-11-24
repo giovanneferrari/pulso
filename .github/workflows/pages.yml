@@ -23,6 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Configurar conexão pública com o Supabase
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node <<'NODE'
+          const {writeFileSync} = require('node:fs');
+          const {SUPABASE_URL:url, SUPABASE_PUBLISHABLE_KEY:publishableKey} = process.env;
+          if (!/^https:\/\/[a-z0-9]+\.supabase\.co\/?$/.test(url) || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey)) {
+            throw new Error('Configure SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY no repositório.');
+          }
+          writeFileSync('dist/supabase-config.json', JSON.stringify({url,publishableKey}));
+          NODE
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

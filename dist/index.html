@@ -6,12 +6,22 @@
 <meta name="theme-color" content="#660099">
 <title>Pulso | Quadro de trabalho Vivo</title>
 <link rel="stylesheet" href="style.css">
-<script defer src="board.js"></script>
+<script type="module" src="board.js"></script>
 </head>
 <body>
+<section id="login-panel" class="login-panel">
+  <form id="login-form">
+    <h1>Entrar no Pulso</h1>
+    <label>E-mail<input name="email" type="email" autocomplete="username" required></label>
+    <label>Senha<input name="password" type="password" autocomplete="current-password" required></label>
+    <button id="login-submit" class="primary" type="submit" disabled>Entrar</button>
+    <p id="login-status" aria-live="polite">Conectando…</p>
+  </form>
+</section>
+<div id="app" hidden>
 <header class="top">
   <div class="brand"><span class="logo">vivo</span><div><span class="workspace">Pulso · Quadro de trabalho</span><h1 id="board-title">Quadro de projetos</h1></div><button type="button" id="rename-board" aria-label="Renomear quadro" title="Renomear quadro">✎</button></div>
-  <button id="new">＋ Novo cartão</button>
+  <div class="account-actions"><button id="new">＋ Novo cartão</button><button id="logout" type="button">Sair</button></div>
 </header>
 <main>
   <div class="toolbar"><div id="stats" aria-label="Resumo do quadro"></div><div class="filters"><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="filter" aria-label="Filtrar por prazo"><option value="">Todos os prazos</option><option value="late">Atrasados</option><option value="soon">Vencem em breve</option><option value="done">Concluídos</option></select><button id="archive-view" type="button" aria-pressed="false">Arquivo</button></div></div>
@@ -19,6 +29,7 @@
   <nav id="list-nav" aria-label="Navegar entre listas"></nav>
   <p id="notice" role="status"></p>
 </main>
+</div>
 <dialog id="editor" aria-labelledby="editor-title"><header class="card-header"><div class="modal-head"><h2 id="editor-title">Novo cartão</h2><button type="button" id="close" aria-label="Fechar">×</button></div>
 <p id="editor-context"></p><nav class="card-tabs" aria-label="Seções do cartão"><button type="button" id="details-tab" aria-pressed="true">Detalhes</button><button type="button" id="diary-tab" aria-pressed="false">Diário</button></nav></header>
 <form id="form"><label>Título<input name="title" required maxlength="100"></label>

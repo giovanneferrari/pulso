@@ -1,36 +1,22 @@
+import {connect, signIn, signOut, loadBoard, persistBoard} from './cloud.js';
+
 const initialColumns = [
   {name:'A fazer',color:'#8c6ad6'},
   {name:'Em andamento',color:'#3e76d7'},
   {name:'Em revisão',color:'#ba791d'},
   {name:'Concluído',color:'#25886c'}
 ].map((column,id)=>({...column,id,done:id===3}));
-const storageKey = 'pulso-board-v1';
 const dateFormat = new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'short'});
 const oneDay = 86400000;
 const dateString = offset => {
   const now = new Date();
   return new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()+offset)).toISOString().slice(0,10);
 };
-const seed = [
-  ['Planejar a próxima sprint','Definir escopo e organizar as prioridades da equipe.','Produto','Alta',-2,0],
-  ['Atualizar guia de marca','Reunir os novos componentes visuais.','Design','Normal',4,0],
-  ['Organizar arquivos do projeto','','Operações','Normal',9,0],
-  ['Prototipar painel de métricas','Explorar formas de visualizar os indicadores.','Design','Alta',1,1],
-  ['Preparar calendário editorial','Estruturar as publicações do próximo mês.','Conteúdo','Normal',6,1],
-  ['Revisar fluxo de cadastro','Validar o fluxo antes da publicação.','Produto','Normal',0,2],
-  ['Definir checklist de lançamento','','Operações','Normal',-1,3],
-  ['Consolidar feedback das entrevistas','','Produto','Normal',-4,3]
-].map(([title,description,tag,priority,offset,column],index)=>({id:'sample-'+index,title,description,tag,priority,date:dateString(offset),column}));
-let cards = seed;
+let cards = [];
 let columns = initialColumns;
 let labelCatalog = [];
 let labelSettings = {showNames:true,patterns:false};
 let boardName = 'Quadro de projetos';
-try {
-  const saved = JSON.parse(localStorage.getItem(storageKey));
-  if(Array.isArray(saved)) cards = saved;
-  else if(saved) ({cards,columns,boardName,labelCatalog=[],labelSettings={showNames:true,patterns:false}} = saved);
-} catch {}
 const byId = id => document.getElementById(id);
 const board = byId('board');
 const editor = byId('editor');
@@ -77,9 +63,12 @@ function ensureLabel(name){
   labelCatalog.push(label);
   return label.id;
 }
-['Design','Produto','Operações','Conteúdo'].forEach(ensureLabel);
-for(const card of cards){
-  if(!card.labelIds) card.labelIds = [...new Set(legacyLabels(card).map(ensureLabel))];
+function restoreBoard(snapshot){
+  if(snapshot) ({cards,columns,boardName,labelCatalog=[],labelSettings={showNames:true,patterns:false}} = snapshot);
+  ['Design','Produto','Operações','Conteúdo'].forEach(ensureLabel);
+  for(const card of cards){
+    if(!card.labelIds) card.labelIds = [...new Set(legacyLabels(card).map(ensureLabel))];
+  }
 }
 function labelChip(label,showName=true){
   const chip = make('span','tag '+label.color+(labelSettings.patterns?' patterned':'')+(showName?'':' color-only'),showName ? label.name : '');
@@ -250,11 +239,18 @@ function openEditor(card,column){
   (card ? byId('details-tab') : form.elements.title).focus();
 }
 function save(message){
-  try { localStorage.setItem(storageKey,JSON.stringify({cards,columns,boardName,labelCatalog,labelSettings})); }
-  catch { message += ' O navegador não conseguiu gravar as alterações.'; }
+  const snapshot = structuredClone({cards,columns,boardName,labelCatalog,labelSettings});
+  const notice = byId('notice');
+  notice.textContent = 'Salvando…';
   render();
-  byId('notice').textContent = message;
-  return message;
+  persistBoard(snapshot).then(()=>{
+    notice.textContent = message;
+    if(editor.open) byId('diary-status').textContent = message;
+  }).catch(error=>{
+    notice.textContent = error.message;
+    if(editor.open) byId('diary-status').textContent = error.message;
+  });
+  return 'Salvando…';
 }
 function clearDrag(){
   board.querySelectorAll('.over,.drop-before').forEach(el=>el.classList.remove('over','drop-before'));
@@ -549,4 +545,37 @@ form.onsubmit = event => {
   editor.close();
   save(editing ? 'Cartão atualizado.' : 'Cartão criado.');
 };
-render();
+const loginStatus = byId('login-status');
+const loginSubmit = byId('login-submit');
+async function enter(user){
+  restoreBoard(await loadBoard(user));
+  byId('login-panel').hidden = true;
+  byId('app').hidden = false;
+  render();
+}
+byId('login-form').onsubmit = async event=>{
+  event.preventDefault();
+  loginSubmit.disabled = true;
+  loginStatus.textContent = 'Entrando…';
+  const {email,password} = event.currentTarget.elements;
+  try {
+    const user = await signIn(email.value.trim(),password.value);
+    password.value = '';
+    await enter(user);
+  } catch(error) {
+    loginStatus.textContent = error.status===400 ? 'Confira o e-mail e a senha.' : 'Não foi possível entrar. Tente novamente.';
+  } finally {
+    loginSubmit.disabled = false;
+  }
+};
+byId('logout').onclick = async ()=>{
+  try { await signOut(); location.reload(); }
+  catch { byId('notice').textContent = 'Não foi possível sair. Tente novamente.'; }
+};
+connect().then(async user=>{
+  if(user) await enter(user);
+  loginStatus.textContent = '';
+  loginSubmit.disabled = false;
+}).catch(()=>{
+  loginStatus.textContent = 'Não foi possível conectar ao Supabase.';
+});
