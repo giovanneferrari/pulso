@@ -25,7 +25,12 @@
   <div class="account-actions"><button id="new">＋ Novo cartão</button><button id="logout" type="button">Sair</button></div>
 </header>
 <main>
-  <div class="toolbar"><div id="stats" aria-label="Resumo do quadro"></div><div class="filters"><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="tag-filter" aria-label="Filtrar por etiqueta"><option value="">Todas as etiquetas</option></select><select id="filter" aria-label="Filtrar por prazo"><option value="">Todos os prazos</option><option value="late">Atrasados</option><option value="soon">Vencem em breve</option><option value="done">Concluídos</option></select><select id="card-density" aria-label="Tamanho dos cartões" aria-controls="board"><option value="compact">Compacto</option><option value="regular">Padrão</option><option value="spacious">Amplo</option></select><button id="archive-view" type="button" aria-pressed="false">Arquivo</button></div></div>
+  <div class="toolbar"><div id="stats" role="group" aria-label="Filtros rápidos de prazo">
+    <button type="button" class="summary" data-deadline="" aria-pressed="true">Todos <span></span></button>
+    <button type="button" class="summary late" data-deadline="late" aria-pressed="false">Atrasados <span></span></button>
+    <button type="button" class="summary today" data-deadline="today" aria-pressed="false">Hoje <span></span></button>
+    <button type="button" class="summary" data-deadline="future" aria-pressed="false">Futuros <span></span></button>
+  </div><div class="filters"><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="tag-filter" aria-label="Filtrar por etiqueta"><option value="">Todas as etiquetas</option></select><select id="card-density" aria-label="Tamanho dos cartões" aria-controls="board"><option value="compact">Compacto</option><option value="regular">Padrão</option><option value="spacious">Amplo</option></select><button id="archive-view" type="button" aria-pressed="false">Arquivo</button></div></div>
   <div id="board" class="board" data-density="compact" aria-label="Listas do quadro"></div>
   <nav id="list-nav" aria-label="Navegar entre listas"></nav>
   <p id="notice" role="status"></p>

@@ -7,7 +7,6 @@ const initialColumns = [
   {name:'Concluído',color:'#25886c'}
 ].map((column,id)=>({...column,id,done:id===3}));
 const dateFormat = new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'short'});
-const oneDay = 86400000;
 const dateString = offset => {
   const now = new Date();
   return new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()+offset)).toISOString().slice(0,10);
@@ -24,6 +23,7 @@ const form = byId('form');
 let editing = null;
 let dragging = null;
 let archivedView = false;
+let deadlineFilter = '';
 let checklist = [];
 let selectedLabels = [];
 let editingLabel = null;
@@ -33,12 +33,11 @@ const nameDialog = byId('name-dialog');
 const nameForm = byId('name-form');
 let nameTarget = null;
 const isComplete = card => card.completed ?? Boolean(columns.find(column=>column.id===card.column)?.done);
-const deadline = card => {
-  if(isComplete(card)) return 'done';
-  if(!card.date) return '';
-  const days = (Date.parse(card.date)-Date.parse(dateString(0)))/oneDay;
-  return days < 0 ? 'late' : days <= 3 ? 'soon' : '';
-};
+function deadline(card,today=dateString(0)){
+  if(isComplete(card) || !card.date) return '';
+  if(card.date<today) return 'late';
+  return card.date===today ? 'today' : 'future';
+}
 const make = (tag,className,text) => {
   const el = document.createElement(tag);
   if(className) el.className = className;
@@ -98,24 +97,25 @@ function render(){
   tagFilter.replaceChildren(new Option('Todas as etiquetas',''),...sortedLabels.map(label=>new Option(label.name,label.id)));
   tagFilter.value = labelCatalog.some(label=>label.id===selectedTag) ? selectedTag : '';
   const tag = tagFilter.value;
-  const viewCards = cards.filter(card=>Boolean(card.archived)===archivedView && (!tag || card.labelIds.includes(tag)));
-  const summary = [
-    ['',viewCards.length+' cartões'],
-    ['late',viewCards.filter(card=>deadline(card)==='late').length+' em atraso'],
-    ['soon',viewCards.filter(card=>deadline(card)==='soon').length+' vencem em breve']
-  ];
-  byId('stats').replaceChildren(...summary.map(([key,label])=>{
-    const button = make('button','summary '+key,label);
-    button.type = 'button';
-    button.setAttribute('aria-pressed',String(byId('filter').value===key));
-    button.onclick = ()=>{
-      byId('filter').value = byId('filter').value===key ? '' : key;
-      render();
-    };
-    return button;
-  }));
   const query = byId('search').value.trim().toLocaleLowerCase('pt-BR');
-  const filter = byId('filter').value;
+  const today = dateString(0);
+  const counts = {late:0,today:0,future:0};
+  const viewCards = cards.filter(card=>{
+    if(Boolean(card.archived)!==archivedView || (tag && !card.labelIds.includes(tag))) return false;
+    if(!query) return true;
+    const fields = [card.title,card.description,card.assignee ?? '',...labelsFor(card).map(label=>label.name)];
+    return fields.some(value=>value.toLocaleLowerCase('pt-BR').includes(query));
+  });
+  for(const card of viewCards){
+    const status = deadline(card,today);
+    if(status) counts[status]++;
+  }
+  for(const button of byId('stats').querySelectorAll('button')){
+    const key = button.dataset.deadline;
+    button.setAttribute('aria-pressed',String(deadlineFilter===key));
+    button.querySelector('span').textContent = key ? counts[key] : viewCards.length;
+  }
+  const visibleCards = deadlineFilter ? viewCards.filter(card=>deadline(card,today)===deadlineFilter) : viewCards;
   const previousScroll = board.scrollLeft;
   board.replaceChildren(...columns.map(({name,color,id:column})=>{
 
@@ -124,11 +124,7 @@ function render(){
     const head = make('div','lane-head');
     const dot = make('span','dot');
     dot.style.setProperty('--dot',color);
-    const visible = viewCards.filter(card=>{
-      if(card.column!==column || (filter && deadline(card)!==filter)) return false;
-      const fields = [card.title,card.description,card.assignee ?? '',...labelsFor(card).map(label=>label.name)];
-      return fields.some(value=>value.toLocaleLowerCase('pt-BR').includes(query));
-    });
+    const visible = visibleCards.filter(card=>card.column===column);
     visible.sort(compareDueDates);
     const heading = make('h3');
     const rename = make('button','lane-title',name);
@@ -143,7 +139,7 @@ function render(){
     head.append(menu);
     const stack = make('div','cards');
     stack.append(...visible.map(cardElement));
-    if(!visible.length) stack.append(make('p','empty',filter || query || tag ? 'Nenhum resultado nesta coluna.' : 'Nenhum cartão.'));
+    if(!visible.length) stack.append(make('p','empty',deadlineFilter || query || tag ? 'Nenhum resultado nesta coluna.' : 'Nenhum cartão.'));
     const add = make('button','add','＋ Adicionar cartão');
     add.setAttribute('aria-label','Adicionar cartão em '+name);
     add.onclick = ()=>openEditor(null,column);
@@ -566,12 +562,17 @@ byId('archive-view').onclick = ()=>{
   byId('archive-view').setAttribute('aria-pressed',String(archivedView));
   byId('archive-view').textContent = archivedView ? 'Voltar ao quadro' : 'Arquivo';
   byId('new').hidden = archivedView;
-  byId('filter').value = '';
+  deadlineFilter = '';
   render();
 };
 byId('new').onclick = ()=>openEditor(null,columns[0].id);
 byId('search').oninput = render;
-byId('filter').onchange = render;
+for(const button of byId('stats').querySelectorAll('button')){
+  button.onclick = ()=>{
+    deadlineFilter = button.dataset.deadline;
+    render();
+  };
+}
 byId('tag-filter').onchange = render;
 const density = byId('card-density');
 const densityKey = 'pulso-card-density';
