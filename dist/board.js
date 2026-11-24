@@ -224,7 +224,6 @@ function cardElement(card){
     details.append(make('span','info-chip','Checklist '+completed+'/'+card.checklist.length));
   }
   if(card.assignee) details.append(make('span','info-chip',card.assignee));
-  if(card.comments?.length) details.append(make('span','info-chip',card.comments.length+' '+(card.comments.length===1?'comentário':'comentários')));
   if(details.childNodes.length) el.append(details);
   el.addEventListener('click',event=>{
     if(!event.target.closest('button')) openEditor(card,card.column);
@@ -586,6 +585,17 @@ byId('search').oninput = render;
 byId('filter').onchange = render;
 byId('tag-filter').onchange = render;
 byId('card-order').onchange = render;
+const density = byId('card-density');
+const densityKey = 'pulso-card-density';
+try {
+  const preferred = localStorage.getItem(densityKey);
+  if(Array.from(density.options).some(option=>option.value===preferred)) density.value = preferred;
+} catch {}
+board.dataset.density = density.value;
+density.onchange = ()=>{
+  board.dataset.density = density.value;
+  try { localStorage.setItem(densityKey,density.value); } catch {}
+};
 byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);

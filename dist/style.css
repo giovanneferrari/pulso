@@ -47,6 +47,14 @@ button[aria-pressed=true].summary, #archive-view[aria-pressed=true] { border-col
 .lane-menu { margin-left: auto; line-height: 1; }
 .cards { display: grid; gap: 8px; }
 .card { background: var(--card); border: 1px solid #e5d8ec; border-radius: 10px; padding: 10px; cursor: grab; }
+.board[data-density="compact"] .cards { gap: 5px; }
+.board[data-density="compact"] .card { padding: 6px 8px; }
+.board[data-density="compact"] .tile-meta { margin-top: 3px; }
+.board[data-density="compact"] .tile-meta > * { padding-block: 1px; }
+.board[data-density="spacious"] .cards { gap: 12px; }
+.board[data-density="spacious"] .card { padding: 15px; }
+.board[data-density="spacious"] .tile-title { font-size: 17px; }
+.board[data-density="spacious"] .tile-meta { margin-top: 9px; }
 .card:hover { border-color: #9f6cbd; }
 .card.drop-before { box-shadow: inset 0 3px var(--accent); }
 .tile-top { display: flex; align-items: start; gap: 8px; }
