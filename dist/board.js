@@ -84,6 +84,12 @@ const dateLabel = card => {
   if(card.date===dateString(1)) return 'Entrega '+formatted+' · Amanhã';
   return 'Entrega '+formatted;
 };
+function compareCreation(a,b){
+  const first = Date.parse(a.activity?.find(entry=>entry.text==='criou o cartão')?.at);
+  const second = Date.parse(b.activity?.find(entry=>entry.text==='criou o cartão')?.at);
+  return (Number.isFinite(first) ? first : -Infinity) - (Number.isFinite(second) ? second : -Infinity) || 0;
+}
+const manualOrder = ()=>byId('card-order').value==='manual';
 function render(){
   byId('board-title').textContent = boardName;
   const tagFilter = byId('tag-filter');
@@ -123,6 +129,7 @@ function render(){
       const fields = [card.title,card.description,card.assignee ?? '',...labelsFor(card).map(label=>label.name)];
       return fields.some(value=>value.toLocaleLowerCase('pt-BR').includes(query));
     });
+    if(!manualOrder()) visible.sort(compareCreation);
     head.append(dot,make('h3','',name),make('span','count',visible.length));
     const menu = make('button','lane-menu','⋯');
     menu.setAttribute('aria-label','Configurar lista '+name);
@@ -278,12 +285,15 @@ board.ondragstart = event => {
 board.ondragover = event => {
   const lane = event.target.closest('.lane');
   if(archivedView || !dragging || !lane) return;
+  clearDrag();
+  const card = cards.find(item=>item.id===dragging);
+  const manual = manualOrder();
+  if(!card || (!manual && card.column===Number(lane.dataset.column))) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
-  clearDrag();
   lane.classList.add('over');
   const target = event.target.closest('.card');
-  if(target && target.dataset.id!==dragging) target.classList.add('drop-before');
+  if(manual && target && target.dataset.id!==dragging) target.classList.add('drop-before');
 };
 board.ondragleave = event => {
   if(!board.contains(event.relatedTarget)) clearDrag();
@@ -293,15 +303,18 @@ board.ondrop = event => {
   const lane = event.target.closest('.lane');
   if(archivedView || !dragging || !lane) return;
   event.preventDefault();
-  const target = event.target.closest('.card')?.dataset.id;
-  if(target === dragging) return;
+  const manual = manualOrder();
+  const target = manual ? event.target.closest('.card')?.dataset.id : undefined;
   const card = cards.find(item=>item.id===dragging);
-  if(!card) return;
+  const column = Number(lane.dataset.column);
+  if(!card || target===dragging || (!manual && card.column===column)) return;
   dragging = null;
-  cards = cards.filter(item=>item.id!==card.id);
-  moveCardTo(card,Number(lane.dataset.column));
-  const index = target ? cards.findIndex(item=>item.id===target) : cards.length;
-  cards.splice(index,0,card);
+  if(manual){
+    cards = cards.filter(item=>item.id!==card.id);
+    const index = target ? cards.findIndex(item=>item.id===target) : cards.length;
+    cards.splice(index,0,card);
+  }
+  moveCardTo(card,column);
   save('Cartão movido para '+columns.find(column=>column.id===card.column).name+'.');
 };
 function moveCardTo(card,column){
@@ -572,6 +585,7 @@ byId('new').onclick = ()=>openEditor(null,columns[0].id);
 byId('search').oninput = render;
 byId('filter').onchange = render;
 byId('tag-filter').onchange = render;
+byId('card-order').onchange = render;
 byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);
