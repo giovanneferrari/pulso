@@ -1,9 +1,9 @@
-const columns = [
+const initialColumns = [
   {name:'A fazer',color:'#8c6ad6'},
   {name:'Em andamento',color:'#3e76d7'},
   {name:'Em revisão',color:'#ba791d'},
   {name:'Concluído',color:'#25886c'}
-];
+].map((column,id)=>({...column,id,done:id===3}));
 const storageKey = 'pulso-board-v1';
 const dateFormat = new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'short'});
 const oneDay = 86400000;
@@ -22,15 +22,26 @@ const seed = [
   ['Consolidar feedback das entrevistas','','Produto','Normal',-4,3]
 ].map(([title,description,tag,priority,offset,column],index)=>({id:'sample-'+index,title,description,tag,priority,date:dateString(offset),column}));
 let cards = seed;
-try { cards = JSON.parse(localStorage.getItem(storageKey)) ?? seed; } catch {}
+let columns = initialColumns;
+let boardName = 'Quadro de projetos';
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if(Array.isArray(saved)) cards = saved;
+  else if(saved) ({cards,columns,boardName} = saved);
+} catch {}
 const byId = id => document.getElementById(id);
 const board = byId('board');
 const editor = byId('editor');
 const form = byId('form');
 let editing = null;
 let dragging = null;
+let archivedView = false;
+let checklist = [];
+const nameDialog = byId('name-dialog');
+const nameForm = byId('name-form');
+let nameTarget = null;
 const deadline = card => {
-  if(card.column === 3) return 'done';
+  if(columns.find(column=>column.id===card.column)?.done) return 'done';
   if(!card.date) return '';
   const days = (Date.parse(card.date)-Date.parse(dateString(0)))/oneDay;
   return days < 0 ? 'late' : days <= 3 ? 'soon' : '';
@@ -50,11 +61,13 @@ const dateLabel = card => {
   return (deadline(card)==='soon' ? 'Vence ' : '')+formatted;
 };
 function render(){
+  byId('board-title').textContent = boardName;
+  const active = cards.filter(card=>!card.archived);
   const summary = [
-    ['','▤','Cartões',cards.length],
-    ['late','!','Atrasados',cards.filter(c=>deadline(c)==='late').length],
-    ['soon','◷','Vencem em breve',cards.filter(c=>deadline(c)==='soon').length],
-    ['done','✓','Concluídos',cards.filter(c=>deadline(c)==='done').length]
+    ['','▤','Cartões',active.length],
+    ['late','!','Atrasados',active.filter(c=>deadline(c)==='late').length],
+    ['soon','◷','Vencem em breve',active.filter(c=>deadline(c)==='soon').length],
+    ['done','✓','Concluídos',active.filter(c=>deadline(c)==='done').length]
   ];
   byId('stats').replaceChildren(...summary.map(([key,icon,label,count])=>{
     const stat = make('div','stat '+key);
@@ -67,27 +80,38 @@ function render(){
   }));
   const query = byId('search').value.trim().toLocaleLowerCase('pt-BR');
   const filter = byId('filter').value;
-  board.replaceChildren(...columns.map(({name,color},column)=>{
+  board.replaceChildren(...columns.map(({name,color,id:column})=>{
+
     const lane = make('section','lane');
     lane.dataset.column = column;
     const head = make('div','lane-head');
     const dot = make('span','dot');
     dot.style.setProperty('--dot',color);
-    const visible = cards.filter(c=>c.column===column && (!filter || deadline(c)===filter) && [c.title,c.description,c.tag].some(value=>value.toLocaleLowerCase('pt-BR').includes(query)));
+    const visible = cards.filter(c=>Boolean(c.archived)===archivedView && c.column===column && (!filter || deadline(c)===filter) && [c.title,c.description,c.tag,c.assignee ?? ''].some(value=>value.toLocaleLowerCase('pt-BR').includes(query)));
     head.append(dot,make('h3','',name),make('span','count',visible.length));
+    const menu = make('button','lane-menu','⋯');
+    menu.setAttribute('aria-label','Configurar lista '+name);
+    menu.onclick = ()=>openName(column);
+    head.append(menu);
     const stack = make('div','cards');
     stack.append(...visible.map(cardElement));
     if(!visible.length) stack.append(make('p','empty',filter || query ? 'Nenhum resultado nesta coluna.' : 'Nenhum cartão.'));
     const add = make('button','add','＋ Adicionar cartão');
     add.setAttribute('aria-label','Adicionar cartão em '+name);
     add.onclick = ()=>openEditor(null,column);
-    lane.append(head,stack,add);
+    lane.append(head,stack);
+    if(!archivedView) lane.append(add);
     return lane;
   }));
+  if(!archivedView){
+    const addList = make('button','add-list','＋ Adicionar lista');
+    addList.onclick = ()=>openName('new');
+    board.append(addList);
+  }
 }
 function cardElement(card){
   const el = make('button','card');
-  el.draggable = true;
+  el.draggable = !card.archived;
   el.dataset.id = card.id;
   const tags = make('span','meta');
   if(card.tag) tags.append(make('span','tag '+card.tag.toLowerCase(),card.tag));
@@ -102,23 +126,35 @@ function cardElement(card){
     chips.append(date);
     el.append(chips);
   }
+  const details = make('span','meta card-details');
+  if(card.checklist?.length){
+    const completed = card.checklist.filter(item=>item.done).length;
+    details.append(make('span','tag',completed+'/'+card.checklist.length+' itens'));
+  }
+  if(card.assignee) details.append(make('span','tag',card.assignee));
+  if(details.childNodes.length) el.append(details);
   el.onclick = ()=>openEditor(card,card.column);
   return el;
 }
 function openEditor(card,column){
   editing = card?.id ?? null;
   form.reset();
+  form.elements.column.replaceChildren(...columns.map(({name,id})=>new Option(name,id)));
   form.elements.column.value = column;
-  for(const key of ['title','description','tag','priority','date']){
-    if(card) form.elements[key].value = card[key];
+  checklist = (card?.checklist ?? []).map(item=>({...item}));
+  byId('check-item').value = '';
+  renderChecklist();
+  for(const key of ['title','description','tag','priority','date','assignee']){
+    if(card) form.elements[key].value = card[key] ?? '';
   }
   byId('editor-title').textContent = card ? 'Editar cartão' : 'Novo cartão';
   byId('remove').hidden = !card;
+  byId('remove').textContent = card?.archived ? 'Restaurar' : 'Arquivar';
   editor.showModal();
   form.elements.title.focus();
 }
 function save(message){
-  try { localStorage.setItem(storageKey,JSON.stringify(cards)); }
+  try { localStorage.setItem(storageKey,JSON.stringify({cards,columns,boardName})); }
   catch { message += ' O navegador não conseguiu gravar as alterações.'; }
   render();
   byId('notice').textContent = message;
@@ -135,7 +171,7 @@ board.ondragstart = event => {
 };
 board.ondragover = event => {
   const lane = event.target.closest('.lane');
-  if(!dragging || !lane) return;
+  if(archivedView || !dragging || !lane) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   clearDrag();
@@ -149,7 +185,7 @@ board.ondragleave = event => {
 board.ondragend = () => { dragging = null; clearDrag(); };
 board.ondrop = event => {
   const lane = event.target.closest('.lane');
-  if(!dragging || !lane) return;
+  if(archivedView || !dragging || !lane) return;
   event.preventDefault();
   const target = event.target.closest('.card')?.dataset.id;
   if(target === dragging) return;
@@ -160,18 +196,99 @@ board.ondrop = event => {
   card.column = Number(lane.dataset.column);
   const index = target ? cards.findIndex(item=>item.id===target) : cards.length;
   cards.splice(index,0,card);
-  save('Cartão movido para '+columns[card.column].name+'.');
+  save('Cartão movido para '+columns.find(column=>column.id===card.column).name+'.');
 };
-columns.forEach(({name},index)=>form.elements.column.add(new Option(name,index)));
-byId('new').onclick = ()=>openEditor(null,0);
+function renderChecklist(){
+  byId('checklist').replaceChildren(...checklist.map((item,index)=>{
+    const line = make('div','check-line');
+    const label = make('label','check-label');
+    const check = make('input');
+    check.type = 'checkbox';
+    check.checked = item.done;
+    check.onchange = ()=>{ item.done = check.checked; };
+    label.append(check,make('span','',item.title));
+    const remove = make('button','','×');
+    remove.type = 'button';
+    remove.setAttribute('aria-label','Remover item '+item.title);
+    remove.onclick = ()=>{ checklist.splice(index,1); renderChecklist(); };
+    line.append(label,remove);
+    return line;
+  }));
+}
+function addChecklistItem(){
+  const input = byId('check-item');
+  const title = input.value.trim();
+  if(!title) return;
+  checklist.push({title,done:false});
+  input.value = '';
+  renderChecklist();
+  input.focus();
+}
+byId('add-item').onclick = addChecklistItem;
+byId('check-item').onkeydown = event=>{
+  if(event.key!=='Enter') return;
+  event.preventDefault();
+  addChecklistItem();
+};
+function openName(target){
+  nameTarget = target;
+  const index = columns.findIndex(column=>column.id===target);
+  const column = columns[index];
+  nameForm.reset();
+  nameForm.elements.name.value = column?.name ?? (target==='board' ? boardName : '');
+  nameForm.elements.done.checked = column?.done ?? false;
+  byId('name-title').textContent = target==='board' ? 'Renomear quadro' : column ? 'Configurar lista' : 'Nova lista';
+  byId('done-field').hidden = target==='board';
+  byId('list-left').hidden = index<=0;
+  byId('list-right').hidden = index<0 || index===columns.length-1;
+  nameDialog.showModal();
+  nameForm.elements.name.focus();
+}
+function moveList(offset){
+  const index = columns.findIndex(column=>column.id===nameTarget);
+  const [column] = columns.splice(index,1);
+  columns.splice(index+offset,0,column);
+  nameDialog.close();
+  save('Lista movida.');
+}
+byId('list-left').onclick = ()=>moveList(-1);
+byId('list-right').onclick = ()=>moveList(1);
+byId('close-name').onclick = ()=>nameDialog.close();
+byId('rename-board').onclick = ()=>openName('board');
+nameForm.onsubmit = event=>{
+  event.preventDefault();
+  const name = nameForm.elements.name.value.trim();
+  if(!name) return;
+  const done = nameForm.elements.done.checked;
+  if(nameTarget==='board') boardName = name;
+  else if(nameTarget==='new'){
+    const id = Math.max(...columns.map(column=>column.id))+1;
+    columns.push({id,name,done,color:'#8c6ad6'});
+  } else {
+    const column = columns.find(item=>item.id===nameTarget);
+    Object.assign(column,{name,done});
+  }
+  nameDialog.close();
+  save('Alterações salvas.');
+};
+byId('archive-view').onclick = ()=>{
+  archivedView = !archivedView;
+  byId('archive-view').setAttribute('aria-pressed',String(archivedView));
+  byId('archive-view').textContent = archivedView ? 'Voltar ao quadro' : 'Arquivo';
+  byId('new').hidden = archivedView;
+  byId('filter').value = '';
+  render();
+};
+byId('new').onclick = ()=>openEditor(null,columns[0].id);
 byId('search').oninput = render;
 byId('filter').onchange = render;
 byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
-  if(!window.confirm('Excluir este cartão?')) return;
-  cards = cards.filter(card=>card.id!==editing);
+  const card = cards.find(item=>item.id===editing);
+  card.archived = !card.archived;
   editor.close();
-  save('Cartão excluído.');
+  save(card.archived ? 'Cartão arquivado.' : 'Cartão restaurado.');
+
 };
 form.onsubmit = event => {
   event.preventDefault();
@@ -180,7 +297,7 @@ form.onsubmit = event => {
     form.elements.title.focus();
     return;
   }
-  const card = {...fields,title:fields.title.trim(),column:Number(fields.column),id:editing ?? crypto.randomUUID()};
+  const card = {...fields,checklist,archived:cards.find(item=>item.id===editing)?.archived ?? false,title:fields.title.trim(),column:Number(fields.column),id:editing ?? crypto.randomUUID()};
   cards = editing ? cards.map(item=>item.id===editing ? card : item) : [...cards,card];
   editor.close();
   save(editing ? 'Cartão atualizado.' : 'Cartão criado.');
