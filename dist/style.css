@@ -70,7 +70,6 @@ button[aria-pressed=true].summary, #archive-view[aria-pressed=true] { border-col
 .tag.lilac { background: #423b62; color: #e7d9ff; }
 .tag.gold { background: #544427; color: #ffdf9f; }
 .tag.pink { background: #52394e; color: #ffd0ef; }
-.tag.high { background: #552d39; color: #ffbdc6; }
 .deadline { font-size: 14px; background: transparent; color: var(--muted); }
 .deadline.today { font-weight: 500; background: #fff0ad; color: #654600; }
 .deadline.late { font-weight: 500; background: #ffe1e6; color: #9a1e38; }
@@ -105,13 +104,13 @@ legend { font-weight: 500; }
   #app { display: flex; flex-direction: column; height: 100dvh; }
   #app > .top, .toolbar, #notice { flex: none; }
   #app > main { display: flex; flex: 1; min-height: 0; flex-direction: column; }
-  .board { display: flex; flex: 1; align-items: stretch; min-height: 0; }
-  .lane { flex: 1 0 220px; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .board { display: flex; flex: 1; align-items: stretch; min-height: 0; --add-list-width: 158px; --lane-width: max(220px, calc((100% - var(--add-list-width) - 4 * 15px) / 4)); }
+  .lane { flex: 0 0 var(--lane-width); min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
   .lane:hover { scrollbar-color: #9869ad transparent; }
   .lane::-webkit-scrollbar { width: 8px; }
   .lane::-webkit-scrollbar-thumb { background: transparent; border-radius: 8px; }
   .lane:hover::-webkit-scrollbar-thumb { background: #9869ad; }
-  .add-list { flex: 0 0 158px; align-self: flex-start; }
+  .add-list { flex: 0 0 var(--add-list-width); align-self: flex-start; }
 }
 @media (max-width: 650px) {
   .top { min-height: 69px; }

@@ -201,7 +201,6 @@ function cardElement(card){
   el.append(top);
   const tags = make('div','meta tile-meta');
   for(const label of labelsFor(card)) tags.append(labelChip(label,labelSettings.showNames));
-  if(card.priority==='Alta') tags.append(make('span','tag high','Prioridade alta'));
   if(tags.childNodes.length) el.append(tags);
   if(card.date || card.start){
     const dates = make('div','meta tile-meta');
