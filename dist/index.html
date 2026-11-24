@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pulso — Quadro Kanban</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="board.js"></script>
+</head>
+<body>
+<header class="top"><div class="brand"><span class="logo" aria-hidden="true">▥</span> Pulso<span class="divider"></span><span class="workspace">Meu espaço</span></div><button id="new">＋ Novo cartão</button></header>
+<main>
+<section class="intro"><div><p class="path">Meu espaço <span> / </span> Projetos</p><h1>Quadro de projetos</h1><p class="subtitle">Organize suas tarefas e acompanhe os prazos em um só lugar.</p></div></section>
+<section class="stats" id="stats" aria-label="Resumo do quadro"></section>
+<div class="toolbar"><h2>Quadro Kanban</h2><div class="filters"><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="filter" aria-label="Filtrar por prazo"><option value="">Todos os prazos</option><option value="late">Atrasados</option><option value="soon">Vencem em breve</option><option value="done">Concluídos</option></select></div></div>
+<div id="board" class="board"></div>
+<p id="notice" role="status"></p>
+</main>
+<dialog id="editor"><form id="form"><div class="modal-head"><h2 id="editor-title">Novo cartão</h2><button type="button" id="close" aria-label="Fechar">×</button></div>
+<label>Título<input name="title" required maxlength="100"></label>
+<label>Descrição<textarea name="description" rows="3" maxlength="1000"></textarea></label>
+<div class="row"><label>Prazo<input type="date" name="date"></label><label>Coluna<select name="column"></select></label></div>
+<div class="row"><label>Categoria<select name="tag"><option value="">Sem categoria</option><option>Design</option><option>Produto</option><option>Operações</option><option>Conteúdo</option></select></label><label>Prioridade<select name="priority"><option>Normal</option><option>Alta</option></select></label></div>
+<div class="actions"><button type="button" id="remove">Excluir</button><div><button type="button" id="cancel">Cancelar</button> <button class="primary" type="submit">Salvar cartão</button></div></div>
+</form></dialog>
+</body></html>
