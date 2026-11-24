@@ -8,21 +8,24 @@
 <script defer src="board.js"></script>
 </head>
 <body>
-<header class="top"><div class="brand"><span class="logo" aria-hidden="true">▥</span> Pulso<span class="divider"></span><span class="workspace">Meu espaço</span></div><button id="new">＋ Novo cartão</button></header>
+<header class="top">
+  <div class="brand"><span class="logo" aria-hidden="true">▥</span><div><span class="workspace">Pulso · Meu espaço</span><h1 id="board-title">Quadro de projetos</h1></div><button type="button" id="rename-board" aria-label="Renomear quadro" title="Renomear quadro">✎</button></div>
+  <button id="new">＋ Novo cartão</button>
+</header>
 <main>
-<section class="intro"><div><p class="path">Meu espaço <span> / </span> Projetos</p><h1 id="board-title">Quadro de projetos</h1><button type="button" id="rename-board" aria-label="Renomear quadro" title="Renomear quadro">✎</button></div></section>
-<section class="stats" id="stats" aria-label="Resumo do quadro"></section>
-<div class="toolbar"><h2>Quadro Kanban</h2><div class="filters"><button id="archive-view" type="button" aria-pressed="false">Arquivo</button><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="filter" aria-label="Filtrar por prazo"><option value="">Todos os prazos</option><option value="late">Atrasados</option><option value="soon">Vencem em breve</option><option value="done">Concluídos</option></select></div></div>
-<div id="board" class="board"></div>
-<p id="notice" role="status"></p>
+  <div class="toolbar"><div id="stats" aria-label="Resumo do quadro"></div><div class="filters"><input id="search" type="search" placeholder="Buscar cartões" aria-label="Buscar cartões"><select id="filter" aria-label="Filtrar por prazo"><option value="">Todos os prazos</option><option value="late">Atrasados</option><option value="soon">Vencem em breve</option><option value="done">Concluídos</option></select><button id="archive-view" type="button" aria-pressed="false">Arquivo</button></div></div>
+  <div id="board" class="board" aria-label="Listas do quadro"></div>
+  <nav id="list-nav" aria-label="Navegar entre listas"></nav>
+  <p id="notice" role="status"></p>
 </main>
 <dialog id="editor"><form id="form"><div class="modal-head"><h2 id="editor-title">Novo cartão</h2><button type="button" id="close" aria-label="Fechar">×</button></div>
-<label>Título<input name="title" required maxlength="100"></label>
+<p id="editor-context"></p><label>Título<input name="title" required maxlength="100"></label>
 <label>Descrição<textarea name="description" rows="3" maxlength="1000"></textarea></label>
-<div class="row"><label>Prazo<input type="date" name="date"></label><label>Coluna<select name="column"></select></label></div>
-<div class="row"><label>Categoria<select name="tag"><option value="">Sem categoria</option><option>Design</option><option>Produto</option><option>Operações</option><option>Conteúdo</option></select></label><label>Prioridade<select name="priority"><option>Normal</option><option>Alta</option></select></label></div>
+<div class="row"><label>Data de início<input type="date" name="start"></label><label>Data de entrega<input type="date" name="date"></label></div><label>Mover para a lista<select name="column"></select></label>
+<div class="row"><label>Etiquetas<input name="tag" maxlength="160" placeholder="Ex.: Design, Produto"><small>Separe as etiquetas por vírgulas.</small></label><label>Prioridade<select name="priority"><option>Normal</option><option>Alta</option></select></label></div>
 <label>Responsável<input name="assignee" maxlength="80" placeholder="Nome da pessoa"></label>
 <fieldset><legend>Checklist</legend><div id="checklist"></div><div class="row checklist-add"><input id="check-item" aria-label="Novo item do checklist" maxlength="120" placeholder="Novo item"><button type="button" id="add-item">Adicionar</button></div></fieldset>
+<fieldset id="activity"><legend>Comentários</legend><div id="comments"></div><div class="row checklist-add"><input id="comment" aria-label="Novo comentário" maxlength="500" placeholder="Escrever comentário"><button type="button" id="add-comment">Adicionar</button></div></fieldset>
 <div class="actions"><button type="button" id="remove">Arquivar</button><div><button type="button" id="cancel">Cancelar</button> <button class="primary" type="submit">Salvar cartão</button></div></div>
 </form></dialog>
 <dialog id="name-dialog"><form id="name-form"><h2 id="name-title"></h2><label>Nome<input name="name" required maxlength="80"></label><label id="done-field"><span><input type="checkbox" name="done"> Lista de conclusão</span></label><div class="actions"><button type="button" id="list-left">Mover à esquerda</button><button type="button" id="list-right">Mover à direita</button><div><button type="button" id="close-name">Cancelar</button> <button type="submit" class="primary">Salvar</button></div></div></form></dialog>

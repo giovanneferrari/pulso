@@ -37,11 +37,13 @@ let editing = null;
 let dragging = null;
 let archivedView = false;
 let checklist = [];
+let comments = [];
 const nameDialog = byId('name-dialog');
 const nameForm = byId('name-form');
 let nameTarget = null;
+const isComplete = card => card.completed ?? Boolean(columns.find(column=>column.id===card.column)?.done);
 const deadline = card => {
-  if(columns.find(column=>column.id===card.column)?.done) return 'done';
+  if(isComplete(card)) return 'done';
   if(!card.date) return '';
   const days = (Date.parse(card.date)-Date.parse(dateString(0)))/oneDay;
   return days < 0 ? 'late' : days <= 3 ? 'soon' : '';
@@ -52,34 +54,44 @@ const make = (tag,className,text) => {
   if(text !== undefined) el.textContent = text;
   return el;
 };
+const formatDate = date => dateFormat.format(new Date(date+'T12:00:00'));
+const labelsFor = card => (card.tag ?? '').split(',').map(label=>label.trim()).filter(Boolean);
+const labelColors = ['mint','blue','lilac','gold','pink'];
+function labelColor(label){
+  const normalized = label.toLocaleLowerCase('pt-BR');
+  const knownColors = {design:'lilac',produto:'blue',operações:'mint',conteúdo:'pink'};
+  const hash = Array.from(normalized).reduce((sum,letter)=>sum+letter.codePointAt(0),0);
+  return Object.hasOwn(knownColors,normalized) ? knownColors[normalized] : labelColors[hash%labelColors.length];
+}
 const dateLabel = card => {
-  const formatted = dateFormat.format(new Date(card.date+'T12:00:00'));
-  if(deadline(card)==='late') return 'Atrasado · '+formatted;
-  if(deadline(card)==='done') return '✓ '+formatted;
-  if(card.date===dateString(0)) return 'Vence hoje';
-  if(card.date===dateString(1)) return 'Vence amanhã';
-  return (deadline(card)==='soon' ? 'Vence ' : '')+formatted;
+  const formatted = formatDate(card.date);
+  if(isComplete(card)) return 'Entrega '+formatted+' · Concluída';
+  if(deadline(card)==='late') return 'Entrega '+formatted+' · Atrasada';
+  if(card.date===dateString(0)) return 'Entrega '+formatted+' · Hoje';
+  if(card.date===dateString(1)) return 'Entrega '+formatted+' · Amanhã';
+  return 'Entrega '+formatted;
 };
 function render(){
   byId('board-title').textContent = boardName;
   const active = cards.filter(card=>!card.archived);
   const summary = [
-    ['','▤','Cartões',active.length],
-    ['late','!','Atrasados',active.filter(c=>deadline(c)==='late').length],
-    ['soon','◷','Vencem em breve',active.filter(c=>deadline(c)==='soon').length],
-    ['done','✓','Concluídos',active.filter(c=>deadline(c)==='done').length]
+    ['',active.length+' cartões'],
+    ['late',active.filter(card=>deadline(card)==='late').length+' em atraso'],
+    ['soon',active.filter(card=>deadline(card)==='soon').length+' vencem em breve']
   ];
-  byId('stats').replaceChildren(...summary.map(([key,icon,label,count])=>{
-    const stat = make('div','stat '+key);
-    const symbol = make('span','symbol',icon);
-    symbol.setAttribute('aria-hidden','true');
-    const info = make('div');
-    info.append(make('strong','',count),make('small','',label));
-    stat.append(symbol,info);
-    return stat;
+  byId('stats').replaceChildren(...summary.map(([key,label])=>{
+    const button = make('button','summary '+key,label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed',String(byId('filter').value===key));
+    button.onclick = ()=>{
+      byId('filter').value = byId('filter').value===key ? '' : key;
+      render();
+    };
+    return button;
   }));
   const query = byId('search').value.trim().toLocaleLowerCase('pt-BR');
   const filter = byId('filter').value;
+  const previousScroll = board.scrollLeft;
   board.replaceChildren(...columns.map(({name,color,id:column})=>{
 
     const lane = make('section','lane');
@@ -108,34 +120,85 @@ function render(){
     addList.onclick = ()=>openName('new');
     board.append(addList);
   }
+  board.scrollLeft = previousScroll;
+  const nav = byId('list-nav');
+  nav.replaceChildren(...[...board.children].map((lane,index)=>{
+    const name = columns[index]?.name ?? 'Adicionar lista';
+    const button = make('button','list-jump');
+    button.type = 'button';
+    button.title = name;
+    button.setAttribute('aria-label',name);
+    button.onclick = ()=>lane.scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'});
+    return button;
+  }));
+  updateListNavigation();
 }
+function updateListNavigation(){
+  const lanes = [...board.children];
+  const start = board.getBoundingClientRect().left + parseFloat(getComputedStyle(board).paddingLeft);
+  let closest = 0;
+  lanes.forEach((lane,index)=>{
+    if(Math.abs(lane.getBoundingClientRect().left-start)<Math.abs(lanes[closest].getBoundingClientRect().left-start)) closest = index;
+  });
+  [...byId('list-nav').children].forEach((button,index)=>button.setAttribute('aria-current',String(index===closest)));
+}
+board.addEventListener('scroll',updateListNavigation,{passive:true});
 function cardElement(card){
-  const el = make('button','card');
+  const el = make('article','card');
   el.draggable = !card.archived;
   el.dataset.id = card.id;
-  const tags = make('span','meta');
-  if(card.tag) tags.append(make('span','tag '+card.tag.toLowerCase(),card.tag));
+  const top = make('div','tile-top');
+  const complete = make('button','complete',isComplete(card) ? '✓' : '');
+  complete.type = 'button';
+  complete.draggable = false;
+  complete.setAttribute('aria-label','Conclusão de '+card.title);
+  complete.setAttribute('aria-pressed',String(isComplete(card)));
+  complete.onclick = ()=>{
+    card.completed = !isComplete(card);
+    save(card.completed ? 'Cartão concluído.' : 'Cartão reaberto.');
+    board.querySelectorAll('.card').forEach(tile=>{
+      if(tile.dataset.id===card.id) tile.querySelector('.complete').focus({preventScroll:true});
+    });
+  };
+  const title = make('button','tile-title',card.title);
+  title.type = 'button';
+  title.draggable = false;
+  title.onclick = ()=>openEditor(card,card.column);
+  if(!card.archived) top.append(complete);
+  top.append(title);
+  el.append(top);
+  const tags = make('div','meta tile-meta');
+  for(const label of labelsFor(card)) tags.append(make('span','tag '+labelColor(label),label));
   if(card.priority==='Alta') tags.append(make('span','tag high','Prioridade alta'));
   if(tags.childNodes.length) el.append(tags);
-  el.append(make('b','',card.title));
-  if(card.description) el.append(make('span','description',card.description));
-  if(card.date){
-    const chips = make('span','meta chips');
-    const date = make('time','deadline '+deadline(card),dateLabel(card));
-    date.dateTime = card.date;
-    chips.append(date);
-    el.append(chips);
+  if(card.date || card.start){
+    const dates = make('div','meta tile-meta');
+    if(card.date){
+      const date = make('time','deadline '+deadline(card),dateLabel(card));
+      date.dateTime = card.date;
+      dates.append(date);
+    }
+    if(card.start){
+      const start = make('time','deadline start','Início '+formatDate(card.start));
+      start.dateTime = card.start;
+      dates.append(start);
+    }
+    el.append(dates);
   }
-  const details = make('span','meta card-details');
+  const details = make('div','meta tile-meta');
   if(card.checklist?.length){
     const completed = card.checklist.filter(item=>item.done).length;
-    details.append(make('span','tag',completed+'/'+card.checklist.length+' itens'));
+    details.append(make('span','info-chip','Checklist '+completed+'/'+card.checklist.length));
   }
-  if(card.assignee) details.append(make('span','tag',card.assignee));
+  if(card.assignee) details.append(make('span','info-chip',card.assignee));
+  if(card.comments?.length) details.append(make('span','info-chip',card.comments.length+' '+(card.comments.length===1?'comentário':'comentários')));
   if(details.childNodes.length) el.append(details);
-  el.onclick = ()=>openEditor(card,card.column);
+  el.addEventListener('click',event=>{
+    if(!event.target.closest('button')) openEditor(card,card.column);
+  });
   return el;
 }
+
 function openEditor(card,column){
   editing = card?.id ?? null;
   form.reset();
@@ -144,7 +207,11 @@ function openEditor(card,column){
   checklist = (card?.checklist ?? []).map(item=>({...item}));
   byId('check-item').value = '';
   renderChecklist();
-  for(const key of ['title','description','tag','priority','date','assignee']){
+  comments = [...(card?.comments ?? [])];
+  byId('comment').value = '';
+  renderComments();
+  byId('editor-context').textContent = boardName+' / '+columns.find(item=>item.id===column).name;
+  for(const key of ['title','description','tag','priority','date','start','assignee']){
     if(card) form.elements[key].value = card[key] ?? '';
   }
   byId('editor-title').textContent = card ? 'Editar cartão' : 'Novo cartão';
@@ -164,7 +231,7 @@ function clearDrag(){
 }
 board.ondragstart = event => {
   const card = event.target.closest('.card');
-  if(!card) return;
+  if(!card || card.draggable===false) return;
   dragging = card.dataset.id;
   event.dataTransfer.setData('text/plain',dragging);
   event.dataTransfer.effectAllowed = 'move';
@@ -193,10 +260,36 @@ board.ondrop = event => {
   if(!card) return;
   dragging = null;
   cards = cards.filter(item=>item.id!==card.id);
-  card.column = Number(lane.dataset.column);
+  moveCardTo(card,Number(lane.dataset.column));
   const index = target ? cards.findIndex(item=>item.id===target) : cards.length;
   cards.splice(index,0,card);
   save('Cartão movido para '+columns.find(column=>column.id===card.column).name+'.');
+};
+function moveCardTo(card,column){
+  if(card.column!==column && card.completed===false) delete card.completed;
+  card.column = column;
+}
+function renderComments(){
+  byId('comments').replaceChildren(...comments.map(comment=>{
+    const entry = make('div','comment-entry');
+    entry.append(make('p','',comment.text),make('small','',new Date(comment.at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})));
+    return entry;
+  }));
+}
+function addComment(){
+  const input = byId('comment');
+  const value = input.value.trim();
+  if(!value) return;
+  comments.push({text:value,at:new Date().toISOString()});
+  input.value = '';
+  renderComments();
+  input.focus();
+}
+byId('add-comment').onclick = addComment;
+byId('comment').onkeydown = event=>{
+  if(event.key!=='Enter') return;
+  event.preventDefault();
+  addComment();
 };
 function renderChecklist(){
   byId('checklist').replaceChildren(...checklist.map((item,index)=>{
@@ -297,7 +390,11 @@ form.onsubmit = event => {
     form.elements.title.focus();
     return;
   }
-  const card = {...fields,checklist,archived:cards.find(item=>item.id===editing)?.archived ?? false,title:fields.title.trim(),column:Number(fields.column),id:editing ?? crypto.randomUUID()};
+  if(byId('comment').value.trim()) addComment();
+  if(byId('check-item').value.trim()) addChecklistItem();
+  const previous = cards.find(item=>item.id===editing);
+  const card = {...previous,...fields,checklist,comments,title:fields.title.trim(),column:previous?.column,id:editing ?? crypto.randomUUID()};
+  moveCardTo(card,Number(fields.column));
   cards = editing ? cards.map(item=>item.id===editing ? card : item) : [...cards,card];
   editor.close();
   save(editing ? 'Cartão atualizado.' : 'Cartão criado.');
