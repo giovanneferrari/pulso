@@ -23,11 +23,13 @@ const seed = [
 ].map(([title,description,tag,priority,offset,column],index)=>({id:'sample-'+index,title,description,tag,priority,date:dateString(offset),column}));
 let cards = seed;
 let columns = initialColumns;
+let labelCatalog = [];
+let labelSettings = {showNames:true,patterns:false};
 let boardName = 'Quadro de projetos';
 try {
   const saved = JSON.parse(localStorage.getItem(storageKey));
   if(Array.isArray(saved)) cards = saved;
-  else if(saved) ({cards,columns,boardName} = saved);
+  else if(saved) ({cards,columns,boardName,labelCatalog=[],labelSettings={showNames:true,patterns:false}} = saved);
 } catch {}
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -37,7 +39,10 @@ let editing = null;
 let dragging = null;
 let archivedView = false;
 let checklist = [];
-let comments = [];
+let selectedLabels = [];
+let editingLabel = null;
+const labelsDialog = byId('label-dialog');
+const labelForm = byId('label-form');
 const nameDialog = byId('name-dialog');
 const nameForm = byId('name-form');
 let nameTarget = null;
@@ -55,13 +60,32 @@ const make = (tag,className,text) => {
   return el;
 };
 const formatDate = date => dateFormat.format(new Date(date+'T12:00:00'));
-const labelsFor = card => (card.tag ?? '').split(',').map(label=>label.trim()).filter(Boolean);
+const legacyLabels = card => (card.tag ?? '').split(',').map(label=>label.trim()).filter(Boolean);
+const labelsFor = card => labelCatalog.filter(label=>card.labelIds.includes(label.id));
 const labelColors = ['mint','blue','lilac','gold','pink'];
 function labelColor(label){
   const normalized = label.toLocaleLowerCase('pt-BR');
   const knownColors = {design:'lilac',produto:'blue',operações:'mint',conteúdo:'pink'};
   const hash = Array.from(normalized).reduce((sum,letter)=>sum+letter.codePointAt(0),0);
   return Object.hasOwn(knownColors,normalized) ? knownColors[normalized] : labelColors[hash%labelColors.length];
+}
+const normalizeLabel = name => name.trim().toLocaleLowerCase('pt-BR');
+function ensureLabel(name){
+  const found = labelCatalog.find(label=>normalizeLabel(label.name)===normalizeLabel(name));
+  if(found) return found.id;
+  const label = {id:crypto.randomUUID(),name,color:labelColor(name)};
+  labelCatalog.push(label);
+  return label.id;
+}
+['Design','Produto','Operações','Conteúdo'].forEach(ensureLabel);
+for(const card of cards){
+  if(!card.labelIds) card.labelIds = [...new Set(legacyLabels(card).map(ensureLabel))];
+}
+function labelChip(label,showName=true){
+  const chip = make('span','tag '+label.color+(labelSettings.patterns?' patterned':'')+(showName?'':' color-only'),showName ? label.name : '');
+  if(!showName) chip.setAttribute('aria-label',label.name);
+  chip.title = label.name;
+  return chip;
 }
 const dateLabel = card => {
   const formatted = formatDate(card.date);
@@ -99,7 +123,7 @@ function render(){
     const head = make('div','lane-head');
     const dot = make('span','dot');
     dot.style.setProperty('--dot',color);
-    const visible = cards.filter(c=>Boolean(c.archived)===archivedView && c.column===column && (!filter || deadline(c)===filter) && [c.title,c.description,c.tag,c.assignee ?? ''].some(value=>value.toLocaleLowerCase('pt-BR').includes(query)));
+    const visible = cards.filter(c=>Boolean(c.archived)===archivedView && c.column===column && (!filter || deadline(c)===filter) && [c.title,c.description,c.assignee ?? '',...labelsFor(c).map(label=>label.name)].some(value=>value.toLocaleLowerCase('pt-BR').includes(query)));
     head.append(dot,make('h3','',name),make('span','count',visible.length));
     const menu = make('button','lane-menu','⋯');
     menu.setAttribute('aria-label','Configurar lista '+name);
@@ -155,6 +179,7 @@ function cardElement(card){
   complete.setAttribute('aria-pressed',String(isComplete(card)));
   complete.onclick = ()=>{
     card.completed = !isComplete(card);
+    recordActivity(card,card.completed ? 'concluiu o cartão' : 'reabriu o cartão');
     save(card.completed ? 'Cartão concluído.' : 'Cartão reaberto.');
     board.querySelectorAll('.card').forEach(tile=>{
       if(tile.dataset.id===card.id) tile.querySelector('.complete').focus({preventScroll:true});
@@ -168,7 +193,7 @@ function cardElement(card){
   top.append(title);
   el.append(top);
   const tags = make('div','meta tile-meta');
-  for(const label of labelsFor(card)) tags.append(make('span','tag '+labelColor(label),label));
+  for(const label of labelsFor(card)) tags.append(labelChip(label,labelSettings.showNames));
   if(card.priority==='Alta') tags.append(make('span','tag high','Prioridade alta'));
   if(tags.childNodes.length) el.append(tags);
   if(card.date || card.start){
@@ -207,24 +232,29 @@ function openEditor(card,column){
   checklist = (card?.checklist ?? []).map(item=>({...item}));
   byId('check-item').value = '';
   renderChecklist();
-  comments = [...(card?.comments ?? [])];
+  selectedLabels = [...(card?.labelIds ?? [])];
+  renderSelectedLabels();
+  showCardPanel(false);
+  byId('diary-tab').hidden = !card;
+  byId('diary-status').textContent = '';
   byId('comment').value = '';
   renderComments();
   byId('editor-context').textContent = boardName+' / '+columns.find(item=>item.id===column).name;
-  for(const key of ['title','description','tag','priority','date','start','assignee']){
+  for(const key of ['title','description','priority','date','start','assignee']){
     if(card) form.elements[key].value = card[key] ?? '';
   }
-  byId('editor-title').textContent = card ? 'Editar cartão' : 'Novo cartão';
+  byId('editor-title').textContent = card ? card.title : 'Novo cartão';
   byId('remove').hidden = !card;
   byId('remove').textContent = card?.archived ? 'Restaurar' : 'Arquivar';
   editor.showModal();
-  form.elements.title.focus();
+  (card ? byId('details-tab') : form.elements.title).focus();
 }
 function save(message){
-  try { localStorage.setItem(storageKey,JSON.stringify({cards,columns,boardName})); }
+  try { localStorage.setItem(storageKey,JSON.stringify({cards,columns,boardName,labelCatalog,labelSettings})); }
   catch { message += ' O navegador não conseguiu gravar as alterações.'; }
   render();
   byId('notice').textContent = message;
+  return message;
 }
 function clearDrag(){
   board.querySelectorAll('.over,.drop-before').forEach(el=>el.classList.remove('over','drop-before'));
@@ -266,30 +296,148 @@ board.ondrop = event => {
   save('Cartão movido para '+columns.find(column=>column.id===card.column).name+'.');
 };
 function moveCardTo(card,column){
-  if(card.column!==column && card.completed===false) delete card.completed;
+  if(card.column!==column && card.column!==undefined){
+    if(card.completed===false) delete card.completed;
+    recordActivity(card,'moveu o cartão para '+columns.find(list=>list.id===column).name);
+  }
   card.column = column;
 }
+function recordActivity(card,text){
+  card.activity ??= [];
+  card.activity.push({text,at:new Date().toISOString()});
+}
+function showCardPanel(diary){
+  form.hidden = diary;
+  byId('diary-panel').hidden = !diary;
+  byId('details-tab').setAttribute('aria-pressed',String(!diary));
+  byId('diary-tab').setAttribute('aria-pressed',String(diary));
+}
+byId('details-tab').onclick = ()=>showCardPanel(false);
+byId('diary-tab').onclick = ()=>showCardPanel(true);
 function renderComments(){
-  byId('comments').replaceChildren(...comments.map(comment=>{
-    const entry = make('div','comment-entry');
-    entry.append(make('p','',comment.text),make('small','',new Date(comment.at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})));
+  const card = cards.find(item=>item.id===editing);
+  const entries = [
+    ...(card?.comments ?? []).map(item=>({...item,comment:true})),
+    ...(card?.activity ?? [])
+  ].reverse().sort((a,b)=>b.at.localeCompare(a.at));
+  const feed = byId('comments');
+  feed.replaceChildren(...entries.map(({text,at,comment})=>{
+    const entry = make('article',comment ? 'diary-entry comment-entry' : 'diary-entry activity-entry');
+    const avatar = make('span','diary-avatar',comment ? 'V' : '•');
+    avatar.setAttribute('aria-hidden','true');
+    const body = make('div');
+    const meta = make('div','diary-meta');
+    const time = make('time','',new Date(at).toLocaleString('pt-BR',{dateStyle:'medium',timeStyle:'short'}));
+    time.dateTime = at;
+    meta.append(make('strong','','Você'),time);
+    body.append(meta,make('p','',text));
+    entry.append(avatar,body);
     return entry;
   }));
+  if(!entries.length) feed.append(make('p','empty','Nenhuma atualização neste cartão.'));
 }
-function addComment(){
+byId('comment-form').onsubmit = event=>{
+  event.preventDefault();
   const input = byId('comment');
   const value = input.value.trim();
-  if(!value) return;
-  comments.push({text:value,at:new Date().toISOString()});
+  const card = cards.find(item=>item.id===editing);
+  if(!value || !card) return;
+  card.comments ??= [];
+  card.comments.push({text:value,at:new Date().toISOString()});
   input.value = '';
   renderComments();
+  byId('diary-status').textContent = save('Comentário publicado.');
+  byId('comments').scrollTop = 0;
   input.focus();
+};
+const colors = {mint:'Verde',blue:'Azul',lilac:'Roxo',gold:'Amarelo',pink:'Rosa',red:'Vermelho'};
+function renderSelectedLabels(){
+  const target = byId('selected-labels');
+  target.replaceChildren(...labelCatalog.filter(label=>selectedLabels.includes(label.id)).map(label=>labelChip(label)));
+  if(!target.childNodes.length) target.append(make('span','empty','Nenhuma etiqueta'));
 }
-byId('add-comment').onclick = addComment;
-byId('comment').onkeydown = event=>{
-  if(event.key!=='Enter') return;
+function renderLabelOptions(){
+  byId('show-label-names').checked = labelSettings.showNames;
+  byId('label-patterns').checked = labelSettings.patterns;
+  byId('label-options').replaceChildren(...labelCatalog.map(label=>{
+    const row = make('div','label-option');
+    const select = make('button','label-choice');
+    select.type = 'button';
+    select.setAttribute('aria-pressed',String(selectedLabels.includes(label.id)));
+    select.append(labelChip(label),make('span','label-check',selectedLabels.includes(label.id) ? '✓' : ''));
+    select.onclick = ()=>{
+      selectedLabels = selectedLabels.includes(label.id) ? selectedLabels.filter(id=>id!==label.id) : [...selectedLabels,label.id];
+      applySelectedLabels();
+      byId('label-options').children[labelCatalog.indexOf(label)].firstElementChild.focus();
+    };
+    const edit = make('button','', 'Editar');
+    edit.type = 'button';
+    edit.setAttribute('aria-label','Editar etiqueta '+label.name);
+    edit.onclick = ()=>openLabelForm(label);
+    row.append(select,edit);
+    return row;
+  }));
+}
+function applySelectedLabels(){
+  const card = cards.find(item=>item.id===editing);
+  if(card) card.labelIds = [...selectedLabels];
+  renderSelectedLabels();
+  renderLabelOptions();
+  save('Etiquetas atualizadas.');
+}
+function openLabelForm(label){
+  editingLabel = label?.id ?? null;
+  byId('label-form-title').textContent = label ? 'Editar etiqueta' : 'Nova etiqueta';
+  byId('label-error').textContent = '';
+  labelForm.elements.name.value = label?.name ?? '';
+  byId('label-colors').replaceChildren(...Object.entries(colors).map(([color,name])=>{
+    const option = make('label','tag '+color);
+    const radio = make('input');
+    radio.type = 'radio';
+    radio.name = 'color';
+    radio.value = color;
+    radio.checked = color===(label?.color ?? 'mint');
+    option.append(radio,make('span','',name));
+    return option;
+  }));
+  labelForm.hidden = false;
+  labelForm.elements.name.focus();
+}
+byId('manage-labels').onclick = ()=>{
+  labelForm.hidden = true;
+  renderLabelOptions();
+  labelsDialog.showModal();
+};
+byId('close-labels').onclick = ()=>labelsDialog.close();
+byId('new-label').onclick = ()=>openLabelForm(null);
+byId('cancel-label').onclick = ()=>{
+  labelForm.hidden = true;
+  byId('new-label').focus();
+};
+for(const [id,key] of [['show-label-names','showNames'],['label-patterns','patterns']]){
+  byId(id).onchange = event=>{
+    labelSettings[key] = event.target.checked;
+    applySelectedLabels();
+  };
+}
+labelForm.onsubmit = event=>{
   event.preventDefault();
-  addComment();
+  const {name:rawName,color} = Object.fromEntries(new FormData(labelForm));
+  const name = rawName.trim();
+  if(!name) return;
+  if(labelCatalog.some(label=>label.id!==editingLabel && normalizeLabel(label.name)===normalizeLabel(name))){
+    byId('label-error').textContent = 'Já existe uma etiqueta com esse nome.';
+    return;
+  }
+  if(editingLabel) Object.assign(labelCatalog.find(label=>label.id===editingLabel),{name,color});
+  else {
+    const id = crypto.randomUUID();
+    labelCatalog.push({id,name,color});
+    selectedLabels = [...selectedLabels,id];
+  }
+  labelForm.hidden = true;
+  applySelectedLabels();
+  byId('new-label').focus();
 };
 function renderChecklist(){
   byId('checklist').replaceChildren(...checklist.map((item,index)=>{
@@ -379,6 +527,7 @@ byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);
   card.archived = !card.archived;
+  recordActivity(card,card.archived ? 'arquivou o cartão' : 'restaurou o cartão');
   editor.close();
   save(card.archived ? 'Cartão arquivado.' : 'Cartão restaurado.');
 
@@ -390,11 +539,12 @@ form.onsubmit = event => {
     form.elements.title.focus();
     return;
   }
-  if(byId('comment').value.trim()) addComment();
   if(byId('check-item').value.trim()) addChecklistItem();
   const previous = cards.find(item=>item.id===editing);
-  const card = {...previous,...fields,checklist,comments,title:fields.title.trim(),column:previous?.column,id:editing ?? crypto.randomUUID()};
+  const card = {...previous,...fields,checklist,labelIds:selectedLabels,title:fields.title.trim(),column:previous?.column,id:editing ?? crypto.randomUUID()};
   moveCardTo(card,Number(fields.column));
+  if(!previous) recordActivity(card,'criou o cartão');
+  else if(previous.title!==card.title) recordActivity(card,'renomeou o cartão de “'+previous.title+'” para “'+card.title+'”');
   cards = editing ? cards.map(item=>item.id===editing ? card : item) : [...cards,card];
   editor.close();
   save(editing ? 'Cartão atualizado.' : 'Cartão criado.');

@@ -104,3 +104,73 @@ legend { font-weight: 700; }
   .list-jump[aria-current=true]::before { background: var(--mint); width: 12px; border-radius: 5px; }
   dialog#editor { width: 100%; max-width: none; max-height: 94dvh; margin: auto 0 0; border-radius: 16px 16px 0 0; }
 }
+
+#editor[open] {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, calc(100% - 24px));
+  padding: 0;
+  overflow: hidden;
+}
+.card-header {
+  padding: 16px 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.card-header h2 { overflow-wrap: anywhere; }
+.card-tabs { display: flex; gap: 14px; margin-top: 10px; }
+.card-tabs button {
+  padding: 10px 7px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.card-tabs button[aria-pressed=true] { border-bottom-color: var(--mint); color: var(--mint); }
+#form { overflow-y: auto; padding: 4px 20px 20px; }
+.label-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-block: 1px solid var(--line);
+  padding: 12px 0;
+}
+.label-section h3 { font-size: 15px; margin-bottom: 6px; }
+.label-section button { flex: none; font-size: 14px; }
+#diary-panel { display: flex; flex-direction: column; min-height: min(490px, 60dvh); overflow: hidden; }
+#comments { flex: 1; overflow-y: auto; padding: 15px 20px; }
+.diary-entry { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 11px; padding: 12px 0; }
+.diary-entry + .diary-entry { border-top: 1px solid var(--line); }
+.diary-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #254b43; color: #a8f4df; font-weight: 700; }
+.activity-entry .diary-avatar { background: #223440; color: var(--muted); }
+.diary-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px 12px; margin-bottom: 5px; font-size: 14px; }
+.diary-meta time, .activity-entry p { color: var(--muted); font-size: 14px; }
+.comment-entry p { white-space: pre-wrap; overflow-wrap: anywhere; background: #21323d; border-radius: 8px; padding: 9px 11px; }
+.composer { display: flex; align-items: end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.composer textarea { flex: 1; resize: none; }
+#diary-status, #label-error { margin: 0 20px 8px; font-size: 13px; color: var(--muted); }
+#diary-status:empty, #label-error:empty { display: none; }
+.label-setting { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 10px 0; }
+#label-options { display: grid; gap: 7px; margin: 16px 0; }
+.label-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.label-choice { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px; text-align: left; }
+.label-choice .tag { flex: 1; min-width: 0; padding: 7px 9px; }
+.label-check { min-width: 22px; text-align: center; color: var(--mint); }
+#label-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.color-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.color-options label { display: flex; align-items: center; margin: 0; }
+.tag.red { background: #592d36; color: #ffc1cb; }
+.tag.color-only { display: inline-block; width: 27px; height: 9px; padding: 0; }
+.tag.patterned { border-bottom: 3px var(--pattern, solid) currentColor; }
+.tag.patterned.color-only { background-image: repeating-linear-gradient(var(--angle, 45deg), transparent 0 3px, #ffffff55 3px 4px); }
+.tag.blue { --pattern: dashed; --angle: 0deg; }
+.tag.lilac { --pattern: dotted; --angle: 90deg; }
+.tag.gold { --pattern: double; --angle: 135deg; }
+.tag.pink { --pattern: groove; --angle: 65deg; }
+.tag.red { --pattern: ridge; --angle: 25deg; }
+@media (max-width: 650px) {
+  #editor[open] { width: 100%; height: 90dvh; max-height: 90dvh; }
+  #diary-panel { flex: 1; min-height: 0; }
+  .card-header, #form, #comments, .composer { padding-inline: 14px; }
+}
