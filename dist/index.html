@@ -40,7 +40,10 @@
 <p id="editor-context"></p><nav class="card-tabs" aria-label="Seções do cartão"><button type="button" id="details-tab" aria-pressed="true">Detalhes</button><button type="button" id="diary-tab" aria-pressed="false">Comentários</button></nav></header>
 <form id="form"><label>Título<input name="title" required maxlength="100"></label>
 <label>Descrição<textarea name="description" rows="3" maxlength="1000"></textarea></label>
-<div class="row"><label>Data de início<input type="date" name="start"></label><label>Data de entrega<input type="date" name="date"></label></div><label>Mover para a lista<select name="column"></select></label>
+<div class="row date-fields">
+  <div><span id="start-label">Data de início</span><input type="hidden" name="start"><button class="date-trigger" type="button" data-date-field="start" aria-labelledby="start-label start-value" aria-haspopup="dialog"><span id="start-value">Escolher data</span></button></div>
+  <div><span id="date-label">Data de entrega</span><input type="hidden" name="date"><button class="date-trigger" type="button" data-date-field="date" aria-labelledby="date-label date-value" aria-haspopup="dialog"><span id="date-value">Escolher data</span></button></div>
+</div><label>Mover para a lista<select name="column"></select></label>
 <section class="label-section"><div><h3>Etiquetas</h3><div id="selected-labels" class="meta"></div></div><button type="button" id="manage-labels">Gerenciar etiquetas</button></section>
 <label>Prioridade<select name="priority"><option>Normal</option><option>Alta</option><option>Baixa</option></select></label>
 <label>Responsável<input name="assignee" maxlength="80" placeholder="Nome da pessoa"></label>
@@ -48,6 +51,23 @@
 <div class="actions"><button type="button" id="remove">Arquivar</button><button type="button" id="delete-card" class="danger" hidden>Excluir cartão</button><div><button type="button" id="cancel">Cancelar</button> <button class="primary" type="submit">Salvar cartão</button></div></div>
 </form>
 <section id="diary-panel" hidden aria-label="Comentários e criação do cartão"><div id="comments"></div><form id="comment-form" class="composer"><textarea id="comment" aria-label="Novo comentário" maxlength="500" rows="2" placeholder="Escreva um comentário…" required></textarea><button class="primary" type="submit">Publicar</button></form><p id="diary-status" role="status"></p></section>
+</dialog>
+<dialog id="discard-card" aria-labelledby="discard-title">
+  <form method="dialog"><h2 id="discard-title">Descartar alterações?</h2><p>As alterações ainda não salvas serão descartadas.</p>
+    <div class="actions"><button value="keep" autofocus>Continuar no cartão</button><button value="discard" class="danger">Descartar</button></div>
+  </form>
+</dialog>
+<dialog id="card-calendar" aria-labelledby="calendar-title">
+  <h2 id="calendar-title">Escolher data</h2>
+  <div class="calendar-header">
+    <button type="button" id="calendar-prev" aria-label="Mês anterior">‹</button>
+    <strong id="calendar-month" aria-live="polite"></strong>
+    <button type="button" id="calendar-next" aria-label="Próximo mês">›</button>
+  </div>
+  <div class="calendar-week" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+  <div id="calendar-days" class="calendar-week" role="group" aria-label="Dias do mês"></div>
+  <div class="actions"><button type="button" id="calendar-clear">Limpar data</button><button type="button" id="calendar-today" class="primary">Hoje</button></div>
+  <form method="dialog"><button class="calendar-close" aria-label="Fechar calendário">×</button></form>
 </dialog>
 <dialog id="label-dialog" aria-labelledby="label-title"><div class="modal-head"><h2 id="label-title">Etiquetas do quadro</h2><button type="button" id="close-labels" aria-label="Fechar etiquetas">×</button></div>
 <label class="label-setting"><input type="checkbox" id="show-label-names"> Mostrar nomes no quadro</label>

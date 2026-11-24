@@ -231,6 +231,96 @@ function cardElement(card){
   return el;
 }
 
+let editorBaseline = '';
+const discardDialog = byId('discard-card');
+const editorContents = ()=>JSON.stringify([[...new FormData(form)],checklist]);
+function requestEditorClose(){
+  const hasDraft = editorContents()!==editorBaseline || byId('check-item').value.trim() || byId('comment').value.trim();
+  if(editing && !hasDraft){
+    editor.close();
+    return;
+  }
+  discardDialog.returnValue = '';
+  discardDialog.showModal();
+}
+discardDialog.onclose = ()=>{
+  if(discardDialog.returnValue==='discard') editor.close();
+};
+editor.oncancel = event=>{
+  event.preventDefault();
+  requestEditorClose();
+};
+function isEditorBackdrop(event){
+  const bounds = editor.getBoundingClientRect();
+  return event.target===editor && (event.clientX<bounds.left || event.clientX>=bounds.right || event.clientY<bounds.top || event.clientY>=bounds.bottom);
+}
+let backdropPress = false;
+editor.onpointerdown = event=>{ backdropPress = isEditorBackdrop(event); };
+editor.onclick = event=>{
+  const outside = backdropPress && isEditorBackdrop(event);
+  backdropPress = false;
+  if(outside) requestEditorClose();
+};
+
+const calendar = byId('card-calendar');
+const calendarMonthFormat = new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'});
+const calendarDateFormat = new Intl.DateTimeFormat('pt-BR',{dateStyle:'full'});
+const selectedDateFormat = new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+let dateField;
+let displayedMonth;
+function refreshDateFields(){
+  for(const field of ['start','date']){
+    const value = form.elements[field].value;
+    byId(field+'-value').textContent = value ? selectedDateFormat.format(new Date(value+'T12:00:00')) : 'Escolher data';
+  }
+}
+function renderCalendar(){
+  const selected = dateField.value;
+  const today = dateString(0);
+  const year = displayedMonth.getFullYear();
+  const month = displayedMonth.getMonth();
+  const leading = displayedMonth.getDay();
+  const lastDay = new Date(year,month+1,0).getDate();
+  byId('calendar-month').textContent = calendarMonthFormat.format(displayedMonth);
+  const cells = Array.from({length:leading},()=>make('span'));
+  for(let day=1; day<=lastDay; day++){
+    const iso = new Date(Date.UTC(year,month,day)).toISOString().slice(0,10);
+    const button = make('button','calendar-day',String(day));
+    button.type = 'button';
+    button.setAttribute('aria-label',calendarDateFormat.format(new Date(year,month,day)));
+    button.setAttribute('aria-pressed',String(iso===selected));
+    if(iso===today) button.setAttribute('aria-current','date');
+    button.onclick = ()=>setCalendarDate(iso);
+    cells.push(button);
+  }
+  byId('calendar-days').replaceChildren(...cells);
+}
+function setCalendarDate(value){
+  dateField.value = value;
+  refreshDateFields();
+  calendar.close();
+}
+form.querySelectorAll('[data-date-field]').forEach(button=>{
+  button.onclick = ()=>{
+    dateField = form.elements[button.dataset.dateField];
+    const date = dateField.value ? new Date(dateField.value+'T12:00:00') : new Date();
+    displayedMonth = new Date(date.getFullYear(),date.getMonth(),1);
+    byId('calendar-title').textContent = byId(button.dataset.dateField+'-label').textContent;
+    renderCalendar();
+    calendar.showModal();
+    const days = byId('calendar-days');
+    (days.querySelector('[aria-pressed="true"]') ?? days.querySelector('[aria-current="date"]') ?? days.querySelector('button')).focus();
+  };
+});
+for(const [id,step] of [['calendar-prev',-1],['calendar-next',1]]){
+  byId(id).onclick = ()=>{
+    displayedMonth.setMonth(displayedMonth.getMonth()+step);
+    renderCalendar();
+  };
+}
+byId('calendar-clear').onclick = ()=>setCalendarDate('');
+byId('calendar-today').onclick = ()=>setCalendarDate(dateString(0));
+
 function openEditor(card,column){
   editing = card?.id ?? null;
   form.reset();
@@ -247,13 +337,18 @@ function openEditor(card,column){
   byId('comment').value = '';
   renderComments();
   byId('editor-context').textContent = boardName+' / '+columns.find(item=>item.id===column).name;
-  for(const key of ['title','description','priority','date','start','assignee']){
+  for(const key of ['title','description','priority','assignee']){
     if(card) form.elements[key].value = card[key] ?? '';
   }
   byId('editor-title').textContent = card ? card.title : 'Novo cartão';
   byId('remove').hidden = !card;
   byId('delete-card').hidden = !card?.archived;
   byId('remove').textContent = card?.archived ? 'Restaurar' : 'Arquivar';
+  form.elements.date.value = card?.date ?? '';
+  form.elements.start.value = card?.start ?? '';
+  refreshDateFields();
+  editorBaseline = editorContents();
+  backdropPress = false;
   editor.showModal();
   (card ? byId('details-tab') : form.elements.title).focus();
 }
@@ -584,7 +679,7 @@ density.onchange = ()=>{
   board.dataset.density = density.value;
   try { localStorage.setItem(densityKey,density.value); } catch {}
 };
-byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
+byId('close').onclick = byId('cancel').onclick = requestEditorClose;
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);
   card.archived = !card.archived;
