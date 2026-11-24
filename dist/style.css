@@ -197,3 +197,8 @@ legend { font-weight: 700; }
 .login-panel { width: min(420px, calc(100% - 32px)); margin: 12vh auto 0; padding: 24px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
 #login-status { color: var(--muted); margin-top: 10px; min-height: 20px; }
 .account-actions { display: flex; align-items: center; gap: 6px; }
+
+.danger { color: #9a1e38; border-color: #edc2cc; }
+.danger:hover:not(:disabled) { background: #ffe1e6; border-color: #9a1e38; }
+.danger:disabled { opacity: .55; cursor: default; }
+#delete-list-description { margin-top: 12px; }

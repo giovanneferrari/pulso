@@ -246,6 +246,7 @@ function openEditor(card,column){
   }
   byId('editor-title').textContent = card ? card.title : 'Novo cartão';
   byId('remove').hidden = !card;
+  byId('delete-card').hidden = !card?.archived;
   byId('remove').textContent = card?.archived ? 'Restaurar' : 'Arquivar';
   editor.showModal();
   (card ? byId('details-tab') : form.elements.title).focus();
@@ -335,7 +336,10 @@ function renderComments(){
     avatar.setAttribute('aria-hidden','true');
     const body = make('div');
     const meta = make('div','diary-meta');
-    const time = make('time','',new Date(at).toLocaleString('pt-BR',{dateStyle:'medium',timeStyle:'short'}));
+    const timestamp = new Date(at);
+    const date = timestamp.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const hour = timestamp.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const time = make('time','',date+' às '+hour);
     time.dateTime = at;
     meta.append(make('strong','','Você'),time);
     body.append(meta,make('p','',text));
@@ -490,6 +494,10 @@ function openName(target){
   byId('done-field').hidden = target==='board';
   byId('list-left').hidden = index<=0;
   byId('list-right').hidden = index<0 || index===columns.length-1;
+  const deleteList = byId('delete-list');
+  deleteList.hidden = !column;
+  deleteList.disabled = columns.length<=1;
+  deleteList.title = deleteList.disabled ? 'O quadro precisa ter pelo menos uma lista.' : '';
   nameDialog.showModal();
   nameForm.elements.name.focus();
 }
@@ -500,6 +508,38 @@ function moveList(offset){
   nameDialog.close();
   save('Lista movida.');
 }
+const deleteListDialog = byId('delete-list-dialog');
+const deleteListForm = byId('delete-list-form');
+byId('delete-list').onclick = ()=>{
+  const column = columns.find(item=>item.id===nameTarget);
+  if(!column || columns.length<=1) return;
+  const count = cards.filter(card=>card.column===column.id).length;
+  const destination = deleteListForm.elements.destination;
+  destination.replaceChildren(
+    new Option('Escolha uma lista',''),
+    ...columns.filter(item=>item.id!==column.id).map(item=>new Option(item.name,item.id))
+  );
+  destination.required = count>0;
+  byId('destination-field').hidden = count===0;
+  byId('delete-list-description').textContent = 'Excluir “'+column.name+'”?'+(count ? ' Escolha o destino dos cartões, incluindo os arquivados.' : '');
+  deleteListDialog.showModal();
+};
+byId('cancel-delete-list').onclick = ()=>deleteListDialog.close();
+deleteListForm.onsubmit = event=>{
+  event.preventDefault();
+  const remaining = columns.filter(column=>column.id!==nameTarget);
+  if(!remaining.length || remaining.length===columns.length) return;
+  const affected = cards.filter(card=>card.column===nameTarget);
+  const destination = deleteListForm.elements.destination.value;
+  if(affected.length){
+    if(!destination || !remaining.some(column=>column.id===Number(destination))) return;
+    for(const card of affected) moveCardTo(card,Number(destination));
+  }
+  columns = remaining;
+  deleteListDialog.close();
+  nameDialog.close();
+  save('Lista excluída.');
+};
 byId('list-left').onclick = ()=>moveList(-1);
 byId('list-right').onclick = ()=>moveList(1);
 byId('close-name').onclick = ()=>nameDialog.close();
@@ -540,6 +580,13 @@ byId('remove').onclick = ()=>{
   editor.close();
   save(card.archived ? 'Cartão arquivado.' : 'Cartão restaurado.');
 
+};
+byId('delete-card').onclick = ()=>{
+  const card = cards.find(item=>item.id===editing);
+  if(!card?.archived || !window.confirm('Excluir “'+card.title+'” permanentemente?')) return;
+  cards = cards.filter(item=>item.id!==card.id);
+  editor.close();
+  save('Cartão excluído.');
 };
 form.onsubmit = event => {
   event.preventDefault();
