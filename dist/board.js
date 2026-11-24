@@ -130,7 +130,13 @@ function render(){
       return fields.some(value=>value.toLocaleLowerCase('pt-BR').includes(query));
     });
     visible.sort(compareDueDates);
-    head.append(dot,make('h3','',name),make('span','count',visible.length));
+    const heading = make('h3');
+    const rename = make('button','lane-title',name);
+    rename.type = 'button';
+    rename.setAttribute('aria-label','Renomear lista '+name);
+    rename.onclick = ()=>openName(column,true);
+    heading.append(rename);
+    head.append(dot,heading,make('span','count',visible.length));
     const menu = make('button','lane-menu','⋯');
     menu.setAttribute('aria-label','Configurar lista '+name);
     menu.onclick = ()=>openName(column);
@@ -485,23 +491,24 @@ byId('check-item').onkeydown = event=>{
   event.preventDefault();
   addChecklistItem();
 };
-function openName(target){
+function openName(target,renameOnly=false){
   nameTarget = target;
   const index = columns.findIndex(column=>column.id===target);
   const column = columns[index];
   nameForm.reset();
   nameForm.elements.name.value = column?.name ?? (target==='board' ? boardName : '');
   nameForm.elements.done.checked = column?.done ?? false;
-  byId('name-title').textContent = target==='board' ? 'Renomear quadro' : column ? 'Configurar lista' : 'Nova lista';
-  byId('done-field').hidden = target==='board';
-  byId('list-left').hidden = index<=0;
-  byId('list-right').hidden = index<0 || index===columns.length-1;
+  byId('name-title').textContent = target==='board' ? 'Renomear quadro' : column ? (renameOnly ? 'Renomear lista' : 'Configurar lista') : 'Nova lista';
+  byId('done-field').hidden = renameOnly || target==='board';
+  byId('list-left').hidden = renameOnly || index<=0;
+  byId('list-right').hidden = renameOnly || index<0 || index===columns.length-1;
   const deleteList = byId('delete-list');
-  deleteList.hidden = !column;
+  deleteList.hidden = renameOnly || !column;
   deleteList.disabled = columns.length<=1;
   deleteList.title = deleteList.disabled ? 'O quadro precisa ter pelo menos uma lista.' : '';
   nameDialog.showModal();
   nameForm.elements.name.focus();
+  if(renameOnly) nameForm.elements.name.select();
 }
 function moveList(offset){
   const index = columns.findIndex(column=>column.id===nameTarget);
