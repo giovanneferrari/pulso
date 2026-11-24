@@ -191,7 +191,6 @@ function cardElement(card){
   complete.setAttribute('aria-pressed',String(isComplete(card)));
   complete.onclick = ()=>{
     card.completed = !isComplete(card);
-    recordActivity(card,card.completed ? 'concluiu o cartão' : 'reabriu o cartão');
     save(card.completed ? 'Cartão concluído.' : 'Cartão reaberto.');
     board.querySelectorAll('.card').forEach(tile=>{
       if(tile.dataset.id===card.id) tile.querySelector('.complete').focus({preventScroll:true});
@@ -313,15 +312,8 @@ board.ondrop = event => {
   save('Cartão movido para '+columns.find(column=>column.id===card.column).name+'.');
 };
 function moveCardTo(card,column){
-  if(card.column!==column && card.column!==undefined){
-    if(card.completed===false) delete card.completed;
-    recordActivity(card,'moveu o cartão para '+columns.find(list=>list.id===column).name);
-  }
+  if(card.column!==column && card.column!==undefined && card.completed===false) delete card.completed;
   card.column = column;
-}
-function recordActivity(card,text){
-  card.activity ??= [];
-  card.activity.push({text,at:new Date().toISOString()});
 }
 function showCardPanel(diary){
   form.hidden = diary;
@@ -335,7 +327,7 @@ function renderComments(){
   const card = cards.find(item=>item.id===editing);
   const entries = [
     ...(card?.comments ?? []).map(item=>({...item,comment:true})),
-    ...(card?.activity ?? [])
+    ...(card?.activity ?? []).filter(item=>item.text==='criou o cartão')
   ].reverse().sort((a,b)=>b.at.localeCompare(a.at));
   const feed = byId('comments');
   feed.replaceChildren(...entries.map(({text,at,comment})=>{
@@ -596,7 +588,6 @@ byId('close').onclick = byId('cancel').onclick = ()=>editor.close();
 byId('remove').onclick = ()=>{
   const card = cards.find(item=>item.id===editing);
   card.archived = !card.archived;
-  recordActivity(card,card.archived ? 'arquivou o cartão' : 'restaurou o cartão');
   editor.close();
   save(card.archived ? 'Cartão arquivado.' : 'Cartão restaurado.');
 
@@ -619,8 +610,7 @@ form.onsubmit = event => {
   const previous = cards.find(item=>item.id===editing);
   const card = {...previous,...fields,checklist,labelIds:selectedLabels,title:fields.title.trim(),column:previous?.column,id:editing ?? crypto.randomUUID()};
   moveCardTo(card,Number(fields.column));
-  if(!previous) recordActivity(card,'criou o cartão');
-  else if(previous.title!==card.title) recordActivity(card,'renomeou o cartão de “'+previous.title+'” para “'+card.title+'”');
+  if(!previous) card.activity = [{text:'criou o cartão',at:new Date().toISOString()}];
   cards = editing ? cards.map(item=>item.id===editing ? card : item) : [...cards,card];
   editor.close();
   save(editing ? 'Cartão atualizado.' : 'Cartão criado.');
