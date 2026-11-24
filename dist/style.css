@@ -104,7 +104,7 @@ legend { font-weight: 500; }
   #app { display: flex; flex-direction: column; height: 100dvh; }
   #app > .top, .toolbar, #notice { flex: none; }
   #app > main { display: flex; flex: 1; min-height: 0; flex-direction: column; }
-  .board { display: flex; flex: 1; align-items: stretch; min-height: 0; --add-list-width: 158px; --lane-width: max(220px, calc((100% - var(--add-list-width) - 4 * 15px) / 4)); }
+  .board { display: flex; flex: 1; align-items: stretch; min-height: 0; gap: 10px; --add-list-width: 140px; --lane-width: clamp(185px, calc((100% - 50px) / 6), 260px); }
   .lane { flex: 0 0 var(--lane-width); min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
   .lane:hover { scrollbar-color: #9869ad transparent; }
   .lane::-webkit-scrollbar { width: 8px; }
