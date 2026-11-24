@@ -91,6 +91,14 @@ legend { font-weight: 700; }
 .check-line .check-label { display: flex; align-items: center; gap: 7px; margin: 4px 0; overflow-wrap: anywhere; }
 .check-line button { padding: 3px 8px; }
 .comment-entry { padding: 8px 0; overflow-wrap: anywhere; }
+@media (min-width: 651px) {
+  #app { display: flex; flex-direction: column; height: 100dvh; }
+  #app > .top, .toolbar, #notice { flex: none; }
+  #app > main { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+  .board { display: flex; flex: 1; align-items: stretch; min-height: 0; }
+  .lane { flex: 1 0 220px; min-width: 0; min-height: 0; overflow-y: auto; }
+  .add-list { flex: 0 0 158px; align-self: flex-start; }
+}
 @media (max-width: 650px) {
   .top { min-height: 69px; }
   .toolbar { gap: 10px; padding-block: 12px; }
