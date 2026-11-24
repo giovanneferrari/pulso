@@ -20,7 +20,8 @@ button:hover { border-color: var(--accent); }
 .top { min-height: 82px; border-bottom: 1px solid var(--line); background: #660099; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px clamp(16px, 4vw, 58px); }
 .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .brand > div { min-width: 0; }
-.logo { display: grid; place-items: center; background: transparent; color: #fff; padding-right: 13px; border-right: 1px solid #ffffff65; font-size: 32px; font-weight: 750; letter-spacing: -.07em; flex: none; }
+.logo { display: grid; place-items: center; padding-right: 13px; border-right: 1px solid #ffffff65; flex: none; }
+.logo img { display: block; }
 .workspace { display: block; font-size: 13px; color: var(--muted); }
 h1 { font-size: clamp(19px, 3vw, 27px); line-height: 1.15; letter-spacing: -.03em; margin: 3px 0 0; overflow-wrap: anywhere; }
 h2, h3, p { margin: 0; }
@@ -60,11 +61,11 @@ button[aria-pressed=true].summary, #archive-view[aria-pressed=true] { border-col
 .tag.lilac { background: #423b62; color: #e7d9ff; }
 .tag.gold { background: #544427; color: #ffdf9f; }
 .tag.pink { background: #52394e; color: #ffd0ef; }
-.tag.high, .deadline.late { background: #552d39; color: #ffbdc6; }
-.deadline { font-size: 14px; background: #ede4f4; color: #553363; }
-.deadline.soon { background: #fff0c7; color: #744400; }
-.deadline.done { background: #dbf5e8; color: #125941; }
-.deadline.start, .info-chip { background: transparent; color: var(--muted); }
+.tag.high { background: #552d39; color: #ffbdc6; }
+.deadline { font-size: 14px; background: transparent; color: var(--muted); }
+.deadline.today { background: #fff0ad; color: #654600; }
+.deadline.late { background: #ffe1e6; color: #9a1e38; }
+.info-chip { background: transparent; color: var(--muted); }
 .info-chip { padding-inline: 1px 6px; }
 .add, .add-list { width: 100%; text-align: left; color: #633476; font-size: 14px; }
 .add { border-color: transparent; background: transparent; margin-top: 8px; }

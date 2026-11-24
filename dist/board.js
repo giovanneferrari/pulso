@@ -198,7 +198,9 @@ function cardElement(card){
   if(card.date || card.start){
     const dates = make('div','meta tile-meta');
     if(card.date){
-      const date = make('time','deadline '+deadline(card),dateLabel(card));
+      const today = dateString(0);
+      const highlight = card.date < today ? ' late' : card.date === today ? ' today' : '';
+      const date = make('time','deadline'+highlight,dateLabel(card));
       date.dateTime = card.date;
       dates.append(date);
     }
